@@ -16,6 +16,12 @@ OUTPUT_FILE = "output/expense_data.xlsx"
 os.makedirs(DATA_FOLDER, exist_ok=True)
 
 # -----------------------------
+# SESSION STATE (IMPORTANT)
+# -----------------------------
+if "analysis_done" not in st.session_state:
+    st.session_state.analysis_done = False
+
+# -----------------------------
 # Upload
 # -----------------------------
 st.subheader("📂 Upload Bank Statement (PDF)")
@@ -52,23 +58,20 @@ if st.button("🚀 Run Analysis"):
     except TypeError:
         main()
 
+    st.session_state.analysis_done = True
     st.success("Analysis completed ✅")
 
 # -----------------------------
-# Dashboard
+# SHOW ONLY AFTER RUN
 # -----------------------------
-if os.path.exists(OUTPUT_FILE):
+if st.session_state.analysis_done and os.path.exists(OUTPUT_FILE):
 
     df = pd.read_excel(OUTPUT_FILE)
 
-    # -----------------------------
-    # CLEAN COLUMN NAMES
-    # -----------------------------
+    # Clean column names
     df.columns = df.columns.str.strip()
 
-    # -----------------------------
-    # AUTO DETECT AMOUNT COLUMN
-    # -----------------------------
+    # Detect amount column
     possible_cols = ["Amount", "Debit", "Withdrawal", "Withdraw", "Amt"]
 
     amount_col = None
@@ -78,33 +81,38 @@ if os.path.exists(OUTPUT_FILE):
             break
 
     if amount_col is None:
-        st.error(f"❌ No Amount column found. Columns are: {list(df.columns)}")
+        st.error(f"❌ No Amount column found: {list(df.columns)}")
         st.stop()
 
-    # -----------------------------
-    # DATE PROCESS
-    # -----------------------------
+    # Date processing
     df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
 
     df["Month"] = df["Date"].dt.month_name()
     df["Year"] = df["Date"].dt.year
 
+    # Month order fix
+    month_order = [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"
+    ]
+
     # -----------------------------
-    # SIDEBAR FILTER
+    # Sidebar Filters
     # -----------------------------
     st.sidebar.header("🔍 Filters")
 
-    selected_years = st.sidebar.multiselect(
-        "Select Year",
-        options=sorted(df["Year"].dropna().unique()),
-        default=sorted(df["Year"].dropna().unique())
-    )
+    years = sorted(df["Year"].dropna().unique())
+    months = [m for m in month_order if m in df["Month"].unique()]
 
-    selected_months = st.sidebar.multiselect(
-        "Select Month",
-        options=df["Month"].dropna().unique(),
-        default=df["Month"].dropna().unique()
-    )
+    selected_years = st.sidebar.multiselect("Select Year", years, default=years)
+    selected_months = st.sidebar.multiselect("Select Month", months, default=months)
+
+    # 👉 Agar kuch select nahi → full data
+    if not selected_years:
+        selected_years = years
+
+    if not selected_months:
+        selected_months = months
 
     filtered_df = df[
         (df["Year"].isin(selected_years)) &
@@ -112,14 +120,19 @@ if os.path.exists(OUTPUT_FILE):
     ]
 
     # -----------------------------
-    # CHARTS
+    # Charts
     # -----------------------------
     col1, col2 = st.columns(2)
 
     with col1:
         st.subheader("📅 Monthly Expense")
 
-        monthly = filtered_df.groupby("Month")[amount_col].sum()
+        monthly = (
+            filtered_df.groupby("Month")[amount_col]
+            .sum()
+            .reindex(month_order)
+            .dropna()
+        )
 
         st.bar_chart(monthly)
 
@@ -131,25 +144,34 @@ if os.path.exists(OUTPUT_FILE):
         st.bar_chart(yearly)
 
     # -----------------------------
-    # TRANSACTIONS
+    # Transactions
     # -----------------------------
     st.subheader("📋 Transactions")
     st.dataframe(filtered_df, use_container_width=True)
 
     # -----------------------------
-    # MOBILE RECHARGE
+    # MOBILE RECHARGE (FROM TO WHOM)
     # -----------------------------
-    if "Category" in df.columns:
+    if "To Whom" in df.columns:
 
         st.subheader("📱 Mobile Recharge (Monthly)")
 
         recharge_df = filtered_df[
-            filtered_df["Category"].str.contains("mobile|recharge", case=False, na=False)
+            filtered_df["To Whom"].str.contains(
+                "mobile|recharge|airtel|jio|vi|vodafone",
+                case=False,
+                na=False
+            )
         ]
 
-        recharge_monthly = recharge_df.groupby("Month")[amount_col].sum()
+        recharge_monthly = (
+            recharge_df.groupby("Month")[amount_col]
+            .sum()
+            .reindex(month_order)
+            .dropna()
+        )
 
         st.bar_chart(recharge_monthly)
 
 else:
-    st.warning("⚠️ Run analysis to see dashboard")
+    st.info("👉 Click 'Run Analysis' to see dashboard")
