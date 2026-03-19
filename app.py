@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 
-# 👇 Import your backend function
+# Backend
 from scripts.expense_tracker import main
 
 # -----------------------------
@@ -34,11 +34,10 @@ if uploaded_file is not None:
     st.success("File uploaded successfully ✅")
 
 # -----------------------------
-# Run Analysis Button
+# Run Analysis
 # -----------------------------
 if st.button("🚀 Run Analysis"):
 
-    # 👉 If no new file uploaded → use last uploaded file
     if file_path is None:
         files = os.listdir(DATA_FOLDER)
 
@@ -46,28 +45,96 @@ if st.button("🚀 Run Analysis"):
             files.sort(key=lambda x: os.path.getmtime(os.path.join(DATA_FOLDER, x)))
             file_path = os.path.join(DATA_FOLDER, files[-1])
         else:
-            st.error("No file available to process ❌")
+            st.error("No file available ❌")
             st.stop()
 
-    # -----------------------------
-    # 🔥 IMPORTANT FIX HERE
-    # -----------------------------
     try:
-        main(file_path)   # 👈 ensure your main() accepts argument
+        main(file_path)
     except TypeError:
-        main()            # 👈 fallback if main() has no parameter
+        main()
 
     st.success("Analysis completed ✅")
 
 # -----------------------------
-# Show Dashboard
+# Dashboard
 # -----------------------------
 if os.path.exists(OUTPUT_FILE):
 
     df = pd.read_excel(OUTPUT_FILE)
 
-    st.subheader("📊 Expense Data")
-    st.dataframe(df, use_container_width=True)
+    # -----------------------------
+    # Preprocessing
+    # -----------------------------
+    df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+
+    df["Month"] = df["Date"].dt.month_name()
+    df["Year"] = df["Date"].dt.year
+
+    # -----------------------------
+    # Sidebar Filters (SLICER)
+    # -----------------------------
+    st.sidebar.header("🔍 Filters")
+
+    selected_years = st.sidebar.multiselect(
+        "Select Year",
+        options=sorted(df["Year"].dropna().unique()),
+        default=sorted(df["Year"].dropna().unique())
+    )
+
+    selected_months = st.sidebar.multiselect(
+        "Select Month",
+        options=df["Month"].dropna().unique(),
+        default=df["Month"].dropna().unique()
+    )
+
+    # Apply filter
+    filtered_df = df[
+        (df["Year"].isin(selected_years)) &
+        (df["Month"].isin(selected_months))
+    ]
+
+    # -----------------------------
+    # Charts (Side by Side)
+    # -----------------------------
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.subheader("📅 Monthly Expense")
+
+        monthly = (
+            filtered_df.groupby("Month")["Amount"]
+            .sum()
+            .reindex(df["Month"].unique())
+        )
+
+        st.bar_chart(monthly)
+
+    with col2:
+        st.subheader("📆 Yearly Expense")
+
+        yearly = filtered_df.groupby("Year")["Amount"].sum()
+
+        st.bar_chart(yearly)
+
+    # -----------------------------
+    # Transactions Table
+    # -----------------------------
+    st.subheader("📋 Transactions")
+
+    st.dataframe(filtered_df, use_container_width=True)
+
+    # -----------------------------
+    # Mobile Recharge Monthly
+    # -----------------------------
+    st.subheader("📱 Mobile Recharge (Monthly)")
+
+    recharge_df = filtered_df[
+        filtered_df["Category"].str.contains("mobile|recharge", case=False, na=False)
+    ]
+
+    recharge_monthly = recharge_df.groupby("Month")["Amount"].sum()
+
+    st.bar_chart(recharge_monthly)
 
 else:
-    st.warning("No data available. Please run analysis first ⚠️")
+    st.warning("⚠️ Run analysis to see dashboard")
