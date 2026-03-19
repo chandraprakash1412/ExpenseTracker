@@ -135,7 +135,8 @@ def extract_transactions(pdf_path):
                 )
 
                 i += 3
-
+        print("TOTAL ROWS:", len(rows))
+        print("SAMPLE DATA:", rows[:5])
     return rows
 
 
