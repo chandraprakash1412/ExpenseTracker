@@ -53,7 +53,7 @@ if "run_clicked" not in st.session_state:
 # -----------------------------
 st.subheader("📂 Upload Bank Statement (PDF)")
 
-uploaded_file = st.file_uploader("Upload PDF File", type=["pdf"])
+
 uploaded_file = st.file_uploader("Upload Bank Statement PDF", type=["pdf"])
 
 if uploaded_file:
@@ -116,15 +116,18 @@ if st.session_state.run_clicked:
     selected_month_names = st.sidebar.multiselect("Select Month(s)", month_names)
 
     selected_months = [list(calendar.month_abbr).index(m) for m in selected_month_names]
+   if uploaded_file is not None:
     file_path = os.path.join(DATA_FOLDER, uploaded_file.name)
+else:
+    st.error("❌ Please upload file again")
+    st.stop()
 
     # -----------------------------
     # Filtering Logic
     # -----------------------------
     filtered_df = df.copy()
 
-    with open(file_path, "wb") as f:
-        f.write(uploaded_file.getbuffer())
+   
 
     if selected_years:
         filtered_df = filtered_df[filtered_df["Year"].isin(selected_years)]
