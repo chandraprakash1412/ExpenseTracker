@@ -54,7 +54,6 @@ if "run_clicked" not in st.session_state:
 st.subheader("📂 Upload Bank Statement (PDF)")
 
 uploaded_file = st.file_uploader("Upload PDF File", type=["pdf"])
-# Upload PDF
 uploaded_file = st.file_uploader("Upload Bank Statement PDF", type=["pdf"])
 
 if uploaded_file:
@@ -79,7 +78,6 @@ if st.button("🚀 Run Analysis"):
 
     with st.spinner("⏳ Processing..."):
         try:
-            # 👇 IMPORTANT FIX (same environment me run)
             main()
         except Exception as e:
             st.error(f"❌ Error: {e}")
@@ -124,6 +122,7 @@ if st.session_state.run_clicked:
     # Filtering Logic
     # -----------------------------
     filtered_df = df.copy()
+
     with open(file_path, "wb") as f:
         f.write(uploaded_file.getbuffer())
 
@@ -133,7 +132,9 @@ if st.session_state.run_clicked:
 
     if selected_months:
         filtered_df = filtered_df[filtered_df["Month"].isin(selected_months)]
+
     if st.button("Run Analysis"):
+        pass
 
     # -----------------------------
     # Metrics
@@ -190,7 +191,8 @@ if st.session_state.run_clicked:
     else:
         recharge_monthly = (
             recharge_df.groupby(["Year", "Month"])["Withdrawal"].sum().reset_index()
-        # Run script
+        )
+
         result = subprocess.run(
             ["python", SCRIPT_PATH],
             capture_output=True,
@@ -209,22 +211,23 @@ if st.session_state.run_clicked:
 
 else:
     st.info("👉 Upload file and click 'Run Analysis'")
-        if result.returncode != 0:
-            st.error("❌ Error while processing")
-            st.text(result.stderr)
+
+    if result.returncode != 0:
+        st.error("❌ Error while processing")
+        st.text(result.stderr)
+    else:
+        st.success("✅ Analysis Completed")
+
+        if os.path.exists(OUTPUT_FILE):
+            df = pd.read_excel(OUTPUT_FILE)
+
+            st.subheader("📊 Expense Data")
+            st.dataframe(df, width="stretch")
+
+            st.download_button(
+                "⬇ Download Excel",
+                data=open(OUTPUT_FILE, "rb"),
+                file_name="expense_data.xlsx"
+            )
         else:
-            st.success("✅ Analysis Completed")
-
-            if os.path.exists(OUTPUT_FILE):
-                df = pd.read_excel(OUTPUT_FILE)
-
-                st.subheader("📊 Expense Data")
-                st.dataframe(df, width="stretch")
-
-                st.download_button(
-                    "⬇ Download Excel",
-                    data=open(OUTPUT_FILE, "rb"),
-                    file_name="expense_data.xlsx"
-                )
-            else:
-                st.warning("⚠️ Output file not found")
+            st.warning("⚠️ Output file not found")
