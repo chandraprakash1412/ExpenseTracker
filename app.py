@@ -65,8 +65,14 @@ if st.button("🚀 Run Analysis"):
 # SHOW DASHBOARD
 # -----------------------------
 if st.session_state.analysis_done and os.path.exists(OUTPUT_FILE):
+   
 
-    df = pd.read_excel(OUTPUT_FILE)
+if os.path.exists(OUTPUT_FILE):
+    df = pd.read_excel(OUTPUT_FILE, engine="openpyxl")
+else:
+    import streamlit as st
+    st.warning("No data found. Please upload or generate data.")
+    df = pd.DataFrame()
 
     df.columns = df.columns.str.strip()
 
